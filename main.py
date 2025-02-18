@@ -240,7 +240,7 @@ class GGUFConverterApp:
         outputfile = os.path.basename(self.gguf_file).replace(
             ".gguf", f"-{self.quant_method.get()}.gguf"
         )
-        command = rf'"./llama-quantize/llama-quantize.exe" "{self.gguf_file}" "{os.path.join(self.output_path,outputfile)}" {self.quant_method.get()}'
+        command = rf'"./llama.cpp/build/bin/Debug/llama-quantize.exe" "{self.gguf_file}" "{os.path.join(self.output_path,outputfile)}" {self.quant_method.get()}'
 
         print("RUNNING : \n" + command)
 
