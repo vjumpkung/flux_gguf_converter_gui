@@ -82,17 +82,7 @@ if exist %VENV_DIR% (
     python -m pip install -r %REQUIREMENTS% --quiet
 )
 
-git submodule update --init --recursive
 
-cd llama.cpp
-git checkout tags/b3600
-git apply ..\lcpp.patch
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Debug -j10 --target llama-quantize
-cd ..
-cd ..
 
 echo Setup Completed
 PAUSE

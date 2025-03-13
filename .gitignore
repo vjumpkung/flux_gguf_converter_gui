@@ -175,3 +175,13 @@ cython_debug/
 
 *.gguf
 *.safetensors
+
+sd.exe
+ggml.txt
+stable-diffusion.cpp.txt
+stable-diffusion.dll
+
+*.zip
+
+build/*
+dist/*

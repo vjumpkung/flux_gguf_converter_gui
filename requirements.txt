@@ -1,4 +1,1 @@
-torch
-gguf
-safetensors
-tqdm
+wget

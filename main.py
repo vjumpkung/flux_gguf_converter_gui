@@ -5,14 +5,38 @@ import threading
 import shlex
 import os
 import sys
+import wget
+import zipfile
 
 PYTHON = sys.executable
+zip_file = "sd-master-10feacf-bin-win-noavx-x64.zip"
+folder_name = "sd-master-10feacf-bin-win-noavx-x64"
+
+
+def extract_zip(zip_path, extract_to=None):
+    """
+    Extract a zip file to the specified directory.
+    If no directory is specified, extract to the same location as the zip file.
+    """
+    # If no extraction path is provided, extract to a folder with the same name as the zip
+    if extract_to is None:
+        extract_to = os.path.splitext(zip_path)[0]
+
+    # Create the extraction directory if it doesn't exist
+    if not os.path.exists(extract_to):
+        os.makedirs(extract_to)
+
+    # Extract the zip file
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        print(f"Extracting {zip_path} to {extract_to}...")
+        zip_ref.extractall(extract_to)
+        print(f"Extraction complete. Files extracted to: {extract_to}")
 
 
 class GGUFConverterApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Flux GGUF Converter and Quantizer")
+        self.root.title("Convert .safetensors to .gguf")
         self.root.geometry("600x300")
         self.root.resizable(False, False)
 
@@ -25,11 +49,9 @@ class GGUFConverterApp:
         self.quantize_tab = ttk.Frame(self.notebook)
 
         # Add tabs to notebook
-        self.notebook.add(self.convert_tab, text="Convert to GGUF")
-        self.notebook.add(self.quantize_tab, text="Quantization")
+        self.notebook.add(self.quantize_tab, text="Quantization to GGUF")
 
         # Initialize tabs
-        self.setup_convert_tab()
         self.setup_quantize_tab()
 
         # Processing flags
@@ -41,51 +63,16 @@ class GGUFConverterApp:
         self.gguf_file = ""
         self.output_path = ""
 
-    def setup_convert_tab(self):
-        # Source file selection
-        ttk.Label(self.convert_tab, text="Source File:").pack(pady=5)
-        self.source_frame = ttk.Frame(self.convert_tab)
+    def setup_quantize_tab(self):
+        # .safetensors file selection
+        ttk.Label(self.quantize_tab, text="Source File (.safetensors):").pack(pady=5)
+        self.source_frame = ttk.Frame(self.quantize_tab)
         self.source_frame.pack(fill="x", padx=5)
 
         self.source_entry = ttk.Entry(self.source_frame)
         self.source_entry.pack(side="left", expand=True, fill="x", padx=(0, 5))
 
         ttk.Button(self.source_frame, text="Browse", command=self.browse_source).pack(
-            side="right"
-        )
-
-        # Destination selection
-        ttk.Label(self.convert_tab, text="Destination:").pack(pady=5)
-        self.dest_frame = ttk.Frame(self.convert_tab)
-        self.dest_frame.pack(fill="x", padx=5)
-
-        self.dest_entry = ttk.Entry(self.dest_frame)
-        self.dest_entry.pack(side="left", expand=True, fill="x", padx=(0, 5))
-
-        ttk.Button(
-            self.dest_frame, text="Browse", command=self.browse_destination
-        ).pack(side="right")
-
-        # Convert button
-        self.convert_button = ttk.Button(
-            self.convert_tab, text="Convert", command=self.start_conversion
-        )
-        self.convert_button.pack(pady=20)
-
-        # Progress bar
-        self.convert_progress = ttk.Progressbar(self.convert_tab, mode="indeterminate")
-        self.convert_progress.forget()
-
-    def setup_quantize_tab(self):
-        # GGUF file selection
-        ttk.Label(self.quantize_tab, text="GGUF FP16/BF16 File:").pack(pady=5)
-        self.gguf_frame = ttk.Frame(self.quantize_tab)
-        self.gguf_frame.pack(fill="x", padx=5)
-
-        self.gguf_entry = ttk.Entry(self.gguf_frame)
-        self.gguf_entry.pack(side="left", expand=True, fill="x", padx=(0, 5))
-
-        ttk.Button(self.gguf_frame, text="Browse", command=self.browse_gguf).pack(
             side="right"
         )
 
@@ -106,19 +93,33 @@ class GGUFConverterApp:
         self.quant_method = ttk.Combobox(
             self.quantize_tab,
             values=[
-                "Q2_K",
-                "Q3_K_S",
-                "Q4_0",
-                "Q4_1",
-                "Q4_K_S",
-                "Q5_0",
-                "Q5_1",
-                "Q5_K_S",
-                "Q6_K",
-                "Q8_0",
+                "f32",
+                "f16",
+                "q4_0",
+                "q4_1",
+                "q5_0",
+                "q5_1",
+                "q8_0",
+                "q2_K",
+                "q3_K",
+                "q4_K",
+                "q5_K",
+                "q6_K",
+                "iq2_xxs",
+                "iq2_xs",
+                "iq3_xxs",
+                "iq1_s",
+                "iq4_nl",
+                "iq3_s",
+                "iq2_s",
+                "iq4_xs",
+                "iq1_m",
+                "bf16",
+                "tq1_0",
+                "tq2_0",
             ],
         )
-        self.quant_method.set("Q4_K_S")  # Default value
+        self.quant_method.set("q4_0")  # Default value
         self.quant_method.pack(pady=5)
 
         # Quantize button
@@ -156,70 +157,14 @@ class GGUFConverterApp:
             self.quant_dest_entry.delete(0, tk.END)
             self.quant_dest_entry.insert(0, dest)
 
-    def browse_gguf(self):
-        filename = filedialog.askopenfilename(filetypes=[("GGUF files", "*.gguf")])
-        if filename:
-            print("GGUF file detected :", os.path.basename(filename))
-            self.gguf_file = filename
-            self.gguf_entry.delete(0, tk.END)
-            self.gguf_entry.insert(0, filename)
-
-    def start_conversion(self):
-        if not self.source_entry.get() or not self.dest_entry.get():
-            messagebox.showerror("Error", "Please select both source and destination")
-            return
-
-        self.convert_button.config(text="Processing...", state="disabled")
-        self.convert_progress.start()
-        self.is_converting = True
-
-        # Simulate conversion in a separate thread
-        self.convert_progress.pack(fill="x", padx=5, pady=5)
-        thread = threading.Thread(target=self.convert_process)
-        thread.start()
-
-    def convert_process(self):
-        outputfile = os.path.basename(self.sft_file).replace(
-            ".safetensors", "-F16.gguf"
-        )
-        command = rf'"{PYTHON}" convert.py --src "{self.sft_file}" --dst "{os.path.join(self.output_path,outputfile)}"'
-
-        print("RUNNING : \n" + command)
-
-        with subprocess.Popen(
-            shlex.split(command),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        ) as sp:
-            for line in sp.stdout:
-                print(line.strip())
-            if sp.poll():
-                self.root.after(0, self.error_conversion)
-                return
-
-        print("Convert to GGUF completed")
-
-        self.root.after(0, self.finish_conversion)
-
     def finish_conversion(self):
         self.convert_button.config(text="Convert", state="normal")
         self.convert_progress.stop()
         self.is_converting = False
         messagebox.showinfo("Success", "Conversion completed!")
 
-    def error_conversion(self):
-        self.convert_button.config(text="Convert", state="normal")
-        self.convert_progress.stop()
-        self.is_converting = False
-        messagebox.showerror(
-            "Error", "An Error has been occur when converting model to GGUF."
-        )
-        self.convert_progress.forget()
-
     def start_quantization(self):
-        if not self.gguf_entry.get() or not self.quant_dest_entry.get():
+        if not self.source_entry.get() or not self.quant_dest_entry.get():
             messagebox.showerror(
                 "Error", "Please select both GGUF file and destination"
             )
@@ -237,10 +182,10 @@ class GGUFConverterApp:
         thread.start()
 
     def quantize_process(self):
-        outputfile = os.path.basename(self.gguf_file).replace(
-            ".gguf", f"-{self.quant_method.get()}.gguf"
+        outputfile = os.path.basename(self.sft_file).replace(
+            ".safetensors", f"-{self.quant_method.get()}.gguf"
         )
-        command = rf'"./llama.cpp/build/bin/Debug/llama-quantize.exe" "{self.gguf_file}" "{os.path.join(self.output_path,outputfile)}" {self.quant_method.get()}'
+        command = rf'"./{folder_name}/sd.exe" -M convert -m "{self.sft_file}" -o "{os.path.join(self.output_path,outputfile)}" -v --type {self.quant_method.get()}'
 
         print("RUNNING : \n" + command)
 
@@ -260,6 +205,15 @@ class GGUFConverterApp:
 
         self.root.after(0, self.finish_quantization)
 
+    def error_conversion(self):
+        self.convert_button.config(text="Convert", state="normal")
+        self.convert_progress.stop()
+        self.is_converting = False
+        messagebox.showerror(
+            "Error", "An Error has been occur when converting model to GGUF."
+        )
+        self.convert_progress.forget()
+
     def finish_quantization(self):
         self.quantize_progress.pack(fill="x", padx=5, pady=5)
         self.quantize_button.config(text="Quantize", state="normal")
@@ -270,6 +224,19 @@ class GGUFConverterApp:
 
 
 if __name__ == "__main__":
+
+    try:
+        if not os.path.exists(folder_name):
+            filename = wget.download(
+                "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-10feacf/sd-master-10feacf-bin-win-noavx-x64.zip"
+            )
+            # extract here
+            zip_file = "sd-master-10feacf-bin-win-noavx-x64.zip"
+            extract_zip(zip_file)
+            os.remove(zip_file)
+    except FileNotFoundError:
+        print("skip downloading")
+
     root = tk.Tk()
     app = GGUFConverterApp(root)
     root.mainloop()
