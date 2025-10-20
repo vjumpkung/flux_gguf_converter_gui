@@ -9,8 +9,8 @@ import wget
 import zipfile
 
 PYTHON = sys.executable
-zip_file = "sd-master-10feacf-bin-win-noavx-x64.zip"
-folder_name = "sd-master-10feacf-bin-win-noavx-x64"
+zip_file_name = "sd-master-64a7698-bin-win-noavx-x64.zip"
+folder_name = "sd-master-64a7698-bin-win-noavx-x64"
 
 
 def extract_zip(zip_path, extract_to=None):
@@ -228,10 +228,10 @@ if __name__ == "__main__":
     try:
         if not os.path.exists(folder_name):
             filename = wget.download(
-                "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-10feacf/sd-master-10feacf-bin-win-noavx-x64.zip"
+                "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-333-64a7698/sd-master-64a7698-bin-win-noavx-x64.zip"
             )
             # extract here
-            zip_file = "sd-master-10feacf-bin-win-noavx-x64.zip"
+            zip_file = zip_file_name
             extract_zip(zip_file)
             os.remove(zip_file)
     except FileNotFoundError:
